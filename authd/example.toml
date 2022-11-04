@@ -1,0 +1,19 @@
+[groups.admins]
+gid = 500
+members = ["mahonec"]
+
+[groups.maintainers]
+gid = 501
+members = ["carlonsm"]
+
+[groups.members]
+gid = 502
+members = []
+
+[users.mahonec]
+id = 10000
+shell = ["zsh", "bash", "sh"]
+
+[users.carlonsm]
+id = 10001
+
