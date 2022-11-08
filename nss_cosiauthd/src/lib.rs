@@ -1,4 +1,4 @@
-use authd::SocketName;
+use authd::{SocketName, Shell};
 use std::io;
 use std::sync::Mutex;
 use tokio::runtime::Runtime;
@@ -21,6 +21,22 @@ mod passwd;
 struct NssConfig {
     host: SocketName,
     cert: String,
+    shells_root: String,
+    shells: Vec<Shell>,
+    home_root: String,
+}
+
+/// Prints to error out only if `debug_assertions` are on
+#[macro_export]
+macro_rules! debug {
+    ($($e:expr),+) => {
+        {
+            #[cfg(debug_assertions)]
+            {
+                eprintln!($($e),+)
+            }
+        }
+    }
 }
 
 lazy_static! {

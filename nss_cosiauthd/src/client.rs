@@ -8,24 +8,12 @@ use libnss::interop::Response;
 use tokio::time::sleep_until;
 use trust_dns_resolver::TokioAsyncResolver;
 
-use crate::{SocketName, CFG, RT};
+use crate::{debug, SocketName, CFG, RT};
 
 #[derive(Default)]
 pub struct ClientAccessControl {
     client: Arc<Mutex<Option<AuthdClient>>>,
     latest_ts: Arc<Mutex<Option<Instant>>>,
-}
-
-/// Prints to error out only if `debug_assertions` are on
-macro_rules! debug {
-    ($($e:expr),+) => {
-        {
-            #[cfg(debug_assertions)]
-            {
-                eprintln!($($e),+)
-            }
-        }
-    }
 }
 
 impl ClientAccessControl {
@@ -83,7 +71,7 @@ impl ClientAccessControl {
             SocketName::Addr(sa) => *sa,
         };
 
-        eprintln!(
+        debug!(
             "nss_cosiauthd: ClientAccessControl: connecting to {}",
             final_sockaddr
         );
@@ -106,6 +94,8 @@ impl ClientAccessControl {
                 Err(_) => return Response::Unavail,
             }
         }
+
+        debug!("Execute");
 
         // SAFETY: `unwrap()` will never panic here because if client was `None` it would have been
         // overwritten to `Some(c)` in the previous block or we returned Response::Unavail
