@@ -3,10 +3,12 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use toml::Value;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    pub groups: HashMap<String, Group>,
-    pub users: HashMap<String, User>,
+    pub groups: Vec<Group>,
+    pub users: Vec<User>,
+    pub cert: String,
+    pub key: String,
 }
 
 impl Config {
@@ -31,8 +33,8 @@ impl Config {
         let groups = self
             .groups
             .iter()
-            .map(|(n, g)| GroupOrUser::Group(n, g.gid));
-        let users = self.users.iter().map(|(n, u)| GroupOrUser::User(n, u.id));
+            .map(|g| GroupOrUser::Group(&g.name, g.gid));
+        let users = self.users.iter().map(|u| GroupOrUser::User(&u.name, u.id));
 
         for gu in groups.chain(users) {
             let id = gu.get_id();
@@ -61,17 +63,25 @@ impl Config {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Group {
+    pub name: String,
     pub gid: u32,
     pub members: Vec<String>,
 }
 
-impl Group {
+pub trait GroupToNSS {
+    type Target;
+    fn to_nss(&self) -> Self::Target;
+}
+
+impl GroupToNSS for Group {
+    type Target = libnss::group::Group;
+
     /// Creates a `libnss::group::Group` from a group config
-    pub fn to_nss(&self, name: &str) -> libnss::group::Group {
+    fn to_nss(&self) -> Self::Target {
         libnss::group::Group {
-            name: name.to_string(),
+            name: self.name.clone(),
             passwd: "x".to_string(),
             gid: self.gid,
             members: self.members.clone(),
@@ -79,62 +89,78 @@ impl Group {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl GroupToNSS for Vec<Group> {
+    type Target = Vec<libnss::group::Group>;
+
+    fn to_nss(&self) -> Self::Target {
+        self.iter().map(|g| g.to_nss()).collect()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
+    pub name: String,
     pub id: u32,
     pub gecos: Option<HashMap<String, Value>>,
     #[serde(default)]
     pub shells: Vec<Shell>,
 }
 
-impl User {
-    /// Converts a `User` to a `libnss::passwd::Passwd`. 
+pub trait UserToNSS {
+    type Target;
+
+    fn to_nss(&self, home_root: &str, shells_root: &str, shells: &Vec<Shell>) -> Self::Target;
+}
+
+impl UserToNSS for User {
+    type Target = libnss::passwd::Passwd;
+
+    /// Converts a `User` to a `libnss::passwd::Passwd`.
     ///
     /// Requires the path of where home folders are stored (such as "/mnt/home")
     /// and list of supported shells ie [Shell::Bash, Shell:Sh]
     ///
     /// Check `User::choose_shell` for documentation on `shells`
-    pub fn to_nss(
-        &self,
-        name: &str,
-        home_root: &str,
-        shells: &Option<Vec<Shell>>,
-    ) -> libnss::passwd::Passwd {
+    fn to_nss(&self, home_root: &str, shells_root: &str, shells: &Vec<Shell>) -> Self::Target {
         libnss::passwd::Passwd {
-            name: name.to_string(),
+            name: self.name.clone(),
             passwd: "x".to_string(),
             uid: self.id,
             gid: self.id,
             gecos: self.gecos_as_json(),
-            dir: format!("{}/{}", home_root, name),
-            shell: self.choose_shell(&shells).to_string(),
+            dir: format!("{}/{}", home_root, self.name),
+            shell: format!("{}/{}", shells_root, self.choose_shell(shells)),
         }
     }
+}
 
+impl User {
     /// Converts user's gecos struct into a JSON formatted string for use in programs
     fn gecos_as_json(&self) -> String {
         match &self.gecos {
-            Some(map) => serde_json::to_string(&map).unwrap_or(String::new()),
+            Some(map) => serde_json::to_string(&map).unwrap_or_default(),
             None => String::new(),
         }
     }
 
     /// Given a list of supported shells return the shell with the highest priority
-    ///
-    /// If no supported shells are provided returns the shell with highest priority, or if no
-    /// priorities are provided returns Shell::Bash
-    ///
-    /// If no priorities are not assigned returns Shell::Bash if it's supported.
-    /// If not it defaults to the first shell that is supported
-    fn choose_shell(&self, supported_shells: &Option<Vec<Shell>>) -> Shell {
-        match supported_shells {
-            Some(supported_shells) => *self
-                .shells
-                .iter()
-                .find(|s| supported_shells.contains(s))
-                .unwrap_or(&Shell::Bash),
-            None => *self.shells.get(0).unwrap_or(&Shell::Bash),
-        }
+    /// If for some
+    fn choose_shell(&self, supported_shells: &Vec<Shell>) -> Shell {
+        self.shells
+            .iter()
+            .find(|s| supported_shells.contains(s))
+            .unwrap_or(&Shell::Bash)
+            .clone()
+    }
+}
+
+impl UserToNSS for Vec<User> {
+    type Target = Vec<libnss::passwd::Passwd>;
+
+    fn to_nss(&self, home_root: &str, shells_root: &str, shells: &Vec<Shell>) -> Self::Target {
+        self.iter()
+            .map(|user| user.to_nss(home_root, shells_root, shells))
+            .collect()
     }
 }
 
@@ -147,14 +173,14 @@ pub enum Shell {
     Fish,
 }
 
-impl Shell {
-    fn to_string(&self) -> String {
-        match self {
+impl std::fmt::Display for Shell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
             Shell::Sh => "sh",
             Shell::Bash => "bash",
             Shell::Zsh => "zsh",
             Shell::Fish => "fish",
-        }
-        .to_string()
+        };
+        write!(f, "{}", s)
     }
 }

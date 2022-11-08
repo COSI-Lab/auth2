@@ -1,47 +1,89 @@
-use std::{fs, sync::Arc, process::exit, net::{IpAddr, Ipv6Addr}, future, time::Duration};
+use std::{
+    fs,
+    net::{IpAddr, Ipv4Addr},
+    process::exit,
+    sync::Arc,
+    time::Duration,
+};
 
-use futures::StreamExt;
+use rustls::{Certificate, PrivateKey};
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
-use tarpc::{tokio_serde::formats::Json, server::Channel, serde_transport::Transport};
-use tokio::net::ToSocketAddrs;
-use tokio_rustls::TlsConnector;
+use tarpc::{serde_transport::Transport, tokio_serde::formats::Json, server::{BaseChannel, Channel}};
+use tokio::net::{TcpListener, ToSocketAddrs};
+use tokio_rustls::{TlsAcceptor, TlsConnector};
+use tracing::Level;
+use tracing_subscriber::FmtSubscriber;
 
-use crate::{types::Config, rpc::{AuthdSession, Authd}};
+use crate::{
+    rpc::{Authd, AuthdSession},
+    types::Config,
+};
 
-pub mod types;
 pub mod rpc;
 mod socketname;
+pub mod types;
 
 pub use socketname::SocketName;
+pub use types::Shell;
 
 /// Hosts an authd server
 pub async fn listen_server() -> anyhow::Result<()> {
-    let contents = fs::read_to_string("example.toml")?;
-    let config = Arc::new(toml::from_str::<Config>(&contents)?);
+    // a builder for `FmtSubscriber`.
+    let subscriber = FmtSubscriber::builder()
+        // all spans/events with a level higher than TRACE (e.g, debug, info, warn, etc.)
+        // will be written to stdout.
+        .with_max_level(Level::TRACE)
+        // completes the builder.
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("setting default subscriber failed");
+
+    let contents = fs::read_to_string("/etc/auth/authd.toml").expect("read config");
+    let config = Arc::new(toml::from_str::<Config>(&contents).expect("parse config"));
 
     if !config.check_dup() {
         exit(1);
     }
 
-    let server_addr = (IpAddr::V6(Ipv6Addr::LOCALHOST), 13699);
+    let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), 13699);
 
-    // JSON transport is provided by the json_transport tarpc module. It makes it easy
-    // to start up a serde-powered json serialization strategy over TCP.
-    let mut listener = tarpc::serde_transport::tcp::listen(&server_addr, Json::default).await?;
-    tracing::info!("Listening on port {}", listener.local_addr().port());
-    listener.config_mut().max_frame_length(usize::MAX);
-    listener
-        // Ignore accept errors.
-        .filter_map(|r| future::ready(r.ok()))
-        .map(tarpc::server::BaseChannel::with_defaults)
-        .map(|channel| {
-            let server = AuthdSession::new(config.clone());
-            channel.execute(server.serve())
-        })
-        .for_each(|_| async {})
-        .await;
+    let tls_config = Arc::new(
+        rustls::ServerConfig::builder()
+            .with_safe_defaults()
+            .with_no_client_auth()
+            .with_single_cert(
+                vec![Certificate(
+                    std::fs::read(&config.cert).expect("read cert"),
+                )],
+                PrivateKey(std::fs::read(&config.key).expect("read key")),
+            )?,
+    );
 
-    Ok(())
+    let tls_config = tls_config.clone();
+    let acceptor: TlsAcceptor = tls_config.into();
+
+    let listener = TcpListener::bind(&server_addr).await.expect("tcp bind");
+
+    tracing::info!("listening on {:?}", server_addr);
+
+    
+    loop {
+        let acceptor = acceptor.clone();
+        let (stream, peer_addr) = listener.accept().await.expect("tcp accept");
+
+        let cloned = config.clone();
+
+        tokio::spawn(async move {
+            let stream = acceptor.accept(stream).await.expect("accepting tls");
+            let tport = tarpc::serde_transport::Transport::from((stream, Json::default()));
+            let channel = BaseChannel::with_defaults(tport);
+            let session = AuthdSession::new(cloned);
+
+            tracing::info!("new connection: {:?}", peer_addr);
+            channel.execute(session.serve()).await;
+        });
+    }
 }
 
 /// Connect to authd over TLS, already knowing + trusting its certificate (if we don't get MITM).
@@ -53,7 +95,7 @@ pub async fn connect_client<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'st
     server_name: &str,
 ) -> anyhow::Result<rpc::AuthdClient> {
     let reconnect_opts = ReconnectOptions::new()
-        .with_exit_if_first_connect_fails(false)
+        .with_exit_if_first_connect_fails(true)
         .with_retries_generator(|| std::iter::repeat(Duration::from_secs(1)));
     let tcp_stream = StubbornTcpStream::connect_with_options(addr, reconnect_opts).await?;
 

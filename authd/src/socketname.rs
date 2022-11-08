@@ -1,5 +1,9 @@
 use std::{net::SocketAddr, str::FromStr};
 
+/// SocketName represents either addr 
+/// `"domain.com:port"`
+/// or 
+/// `"ipaddress:port"`
 #[derive(Debug, PartialEq, Eq)]
 pub enum SocketName {
     Dns(String, u16),

@@ -9,18 +9,14 @@ edition = "2021"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.5"
-
 anyhow = "1.0"
 futures = "0.3"
 tarpc = { version = "0.30", features = ["full"] }
 tokio = { version = "1.0", features = ["full"] }
-
-# Using forked repo until we can make a PR
-libnss = { git = "https://github.com/COSI-Lab/libnss-rs.git", branch = "debug", features = ["serde"] }
-
+libnss = "0.4.0"
 itertools = "0.10"
 tracing = "0.1"
-
+tracing-subscriber = "0.3.16"
 rustls = "0.20"
 tokio-rustls = "0.23"
 shellexpand = "2.1"
