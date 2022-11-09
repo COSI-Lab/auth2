@@ -33,12 +33,12 @@ macro_rules! debug {
         {
             #[cfg(debug_assertions)]
             {
-                use std::fs::File;
+                use std::fs::OpenOptions;
                 use std::io::Write;
 
                 let s = format!($($e),+);
-                let mut file = File::open("/tmp/nss_cosiauthd").unwrap();
-                write!(file, "{}", &s).unwrap();
+                let mut file = OpenOptions::new().append(true).open("/tmp/nss_cosiauthd").unwrap();
+                writeln!(file, "{}", &s).unwrap();
                 eprintln!("{}", s)
             }
         }
