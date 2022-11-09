@@ -8,7 +8,11 @@ use std::{
 
 use rustls::{Certificate, PrivateKey};
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
-use tarpc::{serde_transport::Transport, tokio_serde::formats::Json, server::{BaseChannel, Channel}};
+use tarpc::{
+    serde_transport::Transport,
+    server::{BaseChannel, Channel},
+    tokio_serde::formats::Json,
+};
 use tokio::net::{TcpListener, ToSocketAddrs};
 use tokio_rustls::{TlsAcceptor, TlsConnector};
 use tracing::Level;
@@ -36,8 +40,7 @@ pub async fn listen_server() -> anyhow::Result<()> {
         // completes the builder.
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("setting default subscriber failed");
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let contents = fs::read_to_string("/etc/auth/authd.toml").expect("read config");
     let config = Arc::new(toml::from_str::<Config>(&contents).expect("parse config"));
@@ -46,16 +49,14 @@ pub async fn listen_server() -> anyhow::Result<()> {
         exit(1);
     }
 
-    let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), 13699);
+    let server_addr = (IpAddr::V4(Ipv4Addr::UNSPECIFIED), 8765);
 
     let tls_config = Arc::new(
         rustls::ServerConfig::builder()
             .with_safe_defaults()
             .with_no_client_auth()
             .with_single_cert(
-                vec![Certificate(
-                    std::fs::read(&config.cert).expect("read cert"),
-                )],
+                vec![Certificate(std::fs::read(&config.cert).expect("read cert"))],
                 PrivateKey(std::fs::read(&config.key).expect("read key")),
             )?,
     );
@@ -67,7 +68,6 @@ pub async fn listen_server() -> anyhow::Result<()> {
 
     tracing::info!("listening on {:?}", server_addr);
 
-    
     loop {
         let acceptor = acceptor.clone();
         let (stream, peer_addr) = listener.accept().await.expect("tcp accept");
