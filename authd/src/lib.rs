@@ -3,11 +3,9 @@ use std::{
     net::{IpAddr, Ipv4Addr},
     process::exit,
     sync::Arc,
-    time::Duration,
 };
 
 use rustls::{Certificate, PrivateKey};
-use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tarpc::{
     serde_transport::Transport,
     server::{BaseChannel, Channel},
@@ -94,11 +92,6 @@ pub async fn connect_client<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'st
     cert: &rustls::Certificate,
     server_name: &str,
 ) -> anyhow::Result<rpc::AuthdClient> {
-    //let reconnect_opts = ReconnectOptions::new()
-    //    .with_exit_if_first_connect_fails(true)
-    //    .with_retries_generator(|| std::iter::repeat(Duration::from_secs(1)));
-    //let tcp_stream = StubbornTcpStream::connect_with_options(addr, reconnect_opts).await?;
-
     let tcp_stream = TcpStream::connect(addr).await?;
 
     let mut roots = rustls::RootCertStore::empty();
