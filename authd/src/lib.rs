@@ -13,7 +13,7 @@ use tarpc::{
     server::{BaseChannel, Channel},
     tokio_serde::formats::Json,
 };
-use tokio::net::{TcpListener, ToSocketAddrs};
+use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tokio_rustls::{TlsAcceptor, TlsConnector};
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
@@ -94,10 +94,12 @@ pub async fn connect_client<A: ToSocketAddrs + Unpin + Clone + Send + Sync + 'st
     cert: &rustls::Certificate,
     server_name: &str,
 ) -> anyhow::Result<rpc::AuthdClient> {
-    let reconnect_opts = ReconnectOptions::new()
-        .with_exit_if_first_connect_fails(true)
-        .with_retries_generator(|| std::iter::repeat(Duration::from_secs(1)));
-    let tcp_stream = StubbornTcpStream::connect_with_options(addr, reconnect_opts).await?;
+    //let reconnect_opts = ReconnectOptions::new()
+    //    .with_exit_if_first_connect_fails(true)
+    //    .with_retries_generator(|| std::iter::repeat(Duration::from_secs(1)));
+    //let tcp_stream = StubbornTcpStream::connect_with_options(addr, reconnect_opts).await?;
+
+    let tcp_stream = TcpStream::connect(addr).await?;
 
     let mut roots = rustls::RootCertStore::empty();
     roots.add(cert).unwrap();
