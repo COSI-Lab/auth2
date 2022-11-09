@@ -11,6 +11,8 @@ impl libnss::passwd::PasswdHooks for AuthdPasswd {
     fn get_all_entries() -> Response<Vec<libnss::passwd::Passwd>> {
         let mut cl = RPC.lock().unwrap();
 
+        debug!("get_all_passwd");
+
         let cfg = match &*CFG {
             Ok(cfg) => cfg,
             Err(_) => {
@@ -31,6 +33,8 @@ impl libnss::passwd::PasswdHooks for AuthdPasswd {
 
     fn get_entry_by_uid(uid: libc::uid_t) -> Response<libnss::passwd::Passwd> {
         let mut cl = RPC.lock().unwrap();
+
+        debug!("get_passwd_by_uid {}", uid);
 
         let cfg = match &*CFG {
             Ok(cfg) => cfg,
@@ -53,6 +57,8 @@ impl libnss::passwd::PasswdHooks for AuthdPasswd {
 
     fn get_entry_by_name(name: String) -> Response<libnss::passwd::Passwd> {
         let mut cl = RPC.lock().unwrap();
+
+        debug!("get_passwd_by_name {}", name);
 
         let cfg = match &*CFG {
             Ok(cfg) => cfg,
