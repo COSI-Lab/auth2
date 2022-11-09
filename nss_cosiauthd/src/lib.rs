@@ -1,4 +1,4 @@
-use authd::{SocketName, Shell};
+use authd::{Shell, SocketName};
 use std::io;
 use std::sync::Mutex;
 use tokio::runtime::Runtime;
@@ -33,7 +33,13 @@ macro_rules! debug {
         {
             #[cfg(debug_assertions)]
             {
-                eprintln!($($e),+)
+                use std::fs::File;
+                use std::io::Write;
+
+                let s = format!($($e),+);
+                let mut file = File::open("/tmp/nss_cosiauthd").unwrap();
+                write!(file, "{}", &s).unwrap();
+                eprintln!("{}", s)
             }
         }
     }

@@ -13,23 +13,18 @@ impl libnss::group::GroupHooks for AuthdGroup {
 
         debug!("get_all_groups");
 
-        let response =
-            cl.with_client(
-                |client| match block_on(client.get_all_groups(context::current())) {
-                    Ok(groups) => {
-                        debug!("Success");
-                        Response::Success(groups.to_nss())
-                    }
-                    Err(err) => {
-                        debug!("Unavail {}", err);
-                        Response::Unavail
-                    }
-                },
-            );
-
-        debug!("{:?}", response);
-
-        response
+        cl.with_client(
+            |client| match block_on(client.get_all_groups(context::current())) {
+                Ok(groups) => {
+                    debug!("Success");
+                    Response::Success(groups.to_nss())
+                }
+                Err(err) => {
+                    debug!("Unavail {}", err);
+                    Response::Unavail
+                }
+            },
+        )
     }
 
     fn get_entry_by_gid(gid: libc::gid_t) -> Response<libnss::group::Group> {
@@ -37,8 +32,8 @@ impl libnss::group::GroupHooks for AuthdGroup {
 
         debug!("get_group_by_gid {}", gid);
 
-        let response = cl.with_client(|client| {
-            match block_on(client.get_group_by_gid(context::current(), gid)) {
+        cl.with_client(
+            |client| match block_on(client.get_group_by_gid(context::current(), gid)) {
                 Ok(Some(group)) => {
                     debug!("Success");
                     Response::Success(group.to_nss())
@@ -51,12 +46,8 @@ impl libnss::group::GroupHooks for AuthdGroup {
                     debug!("Unavail {}", err);
                     Response::Unavail
                 }
-            }
-        });
-
-        debug!("{:?}", response);
-
-        response
+            },
+        )
     }
 
     fn get_entry_by_name(name: String) -> Response<libnss::group::Group> {
@@ -64,7 +55,7 @@ impl libnss::group::GroupHooks for AuthdGroup {
 
         debug!("get_group_by_name {}", name);
 
-        let response = cl.with_client(|client| {
+        cl.with_client(|client| {
             match block_on(client.get_group_by_name(context::current(), name)) {
                 Ok(Some(group)) => {
                     debug!("Success");
@@ -79,10 +70,6 @@ impl libnss::group::GroupHooks for AuthdGroup {
                     Response::Unavail
                 }
             }
-        });
-
-        debug!("{:?}", response);
-
-        response
+        })
     }
 }
