@@ -2,8 +2,9 @@ use authd::types::GroupToNSS;
 use futures::executor::block_on;
 use libnss::interop::Response;
 use tarpc::context;
+use tracing::{info, warn};
 
-use crate::{debug, RPC};
+use crate::RPC;
 
 pub struct AuthdGroup {}
 
@@ -11,16 +12,16 @@ impl libnss::group::GroupHooks for AuthdGroup {
     fn get_all_entries() -> Response<Vec<libnss::group::Group>> {
         let mut cl = RPC.lock().unwrap();
 
-        debug!("get_all_groups");
+        info!("get_all_groups");
 
         cl.with_client(
             |client| match block_on(client.get_all_groups(context::current())) {
                 Ok(groups) => {
-                    debug!("Success");
+                    info!("get_all_groups success");
                     Response::Success(groups.to_nss())
                 }
                 Err(err) => {
-                    debug!("Unavail {}", err);
+                    warn!("get_all_groups unavail {}", err);
                     Response::Unavail
                 }
             },
@@ -30,20 +31,20 @@ impl libnss::group::GroupHooks for AuthdGroup {
     fn get_entry_by_gid(gid: libc::gid_t) -> Response<libnss::group::Group> {
         let mut cl = RPC.lock().unwrap();
 
-        debug!("get_group_by_gid {}", gid);
+        info!("get_group_by_gid {}", gid);
 
         cl.with_client(
             |client| match block_on(client.get_group_by_gid(context::current(), gid)) {
                 Ok(Some(group)) => {
-                    debug!("Success");
+                    info!("get_group_by_gid {} Success", gid);
                     Response::Success(group.to_nss())
                 }
                 Ok(None) => {
-                    debug!("NotFound");
+                    info!("get_group_by_gid {} NotFound", gid);
                     Response::NotFound
                 }
                 Err(err) => {
-                    debug!("Unavail {}", err);
+                    warn!("get_group_by_gid {} Unavail {}", gid, err);
                     Response::Unavail
                 }
             },
@@ -53,20 +54,20 @@ impl libnss::group::GroupHooks for AuthdGroup {
     fn get_entry_by_name(name: String) -> Response<libnss::group::Group> {
         let mut cl = RPC.lock().unwrap();
 
-        debug!("get_group_by_name {}", name);
+        info!("get_group_by_name {}", name);
 
         cl.with_client(|client| {
-            match block_on(client.get_group_by_name(context::current(), name)) {
+            match block_on(client.get_group_by_name(context::current(), name.clone())) {
                 Ok(Some(group)) => {
-                    debug!("Success");
+                    info!("get_group_by_name {} Success", name);
                     Response::Success(group.to_nss())
                 }
                 Ok(None) => {
-                    debug!("NotFound");
+                    info!("get_group_by_name {} NotFound", name);
                     Response::NotFound
                 }
                 Err(err) => {
-                    debug!("Unavail {}", err);
+                    warn!("get_group_by_name {} Unavail {}", name, err);
                     Response::Unavail
                 }
             }

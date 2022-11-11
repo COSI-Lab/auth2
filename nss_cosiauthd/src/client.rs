@@ -6,9 +6,10 @@ use std::{
 use authd::rpc::AuthdClient;
 use libnss::interop::Response;
 use tokio::time::sleep_until;
+use tracing::{error, warn, info};
 use trust_dns_resolver::TokioAsyncResolver;
 
-use crate::{debug, SocketName, CFG, RT};
+use crate::{SocketName, CFG, RT};
 
 #[derive(Default)]
 pub struct ClientAccessControl {
@@ -22,11 +23,11 @@ impl ClientAccessControl {
         f: impl FnOnce(&mut AuthdClient) -> Response<O>,
     ) -> Response<O> {
         let Ok(rt) = &*RT else {
-            debug!("Runtime unavialable");
+            error!("Runtime unavialable");
             return Response::Unavail;
         };
         let Ok(cfg) = &*CFG else {
-            debug!("Configuration unavialable");
+            error!("Configuration unavialable");
             return Response::Unavail;
         };
 
@@ -42,7 +43,7 @@ impl ClientAccessControl {
                 // make sure it wasn't moved forward while we were sleeping
                 if latest_ts.lock().unwrap().unwrap_or(Instant::now()) < Instant::now() {
                     *cl.lock().unwrap() = None;
-                    debug!(
+                    warn!(
                         "nss_cosiauthd: ClientAccessControl: client timed out, closing connection."
                     );
                     break;
@@ -57,12 +58,12 @@ impl ClientAccessControl {
         let final_sockaddr = match &cfg.host {
             SocketName::Dns(name, port) => {
                 let Ok(ips) = rt.block_on(resolver.lookup_ip(name)) else {
-                    debug!("Failed to do DNS lookup");
+                    warn!("Failed to do DNS lookup");
                     return Response::Unavail;
                 };
 
                 let Some(ip) = ips.iter().next() else {
-                    debug!("No ips were returned");
+                    warn!("No ips were returned");
                     return Response::Unavail;
                 };
 
@@ -71,7 +72,7 @@ impl ClientAccessControl {
             SocketName::Addr(sa) => *sa,
         };
 
-        debug!(
+        info!(
             "nss_cosiauthd: ClientAccessControl: connecting to {}",
             final_sockaddr
         );
@@ -79,7 +80,7 @@ impl ClientAccessControl {
         let mut client = self.client.lock().unwrap();
         if client.is_none() {
             let Ok(cert) = std::fs::read(&cfg.cert) else {
-                debug!("Failed to read cert");
+                error!("Failed to read cert");
                 return Response::Unavail;
             };
 
@@ -95,7 +96,7 @@ impl ClientAccessControl {
             }
         }
 
-        debug!("Execute");
+        info!("client ready");
 
         // SAFETY: `unwrap()` will never panic here because if client was `None` it would have been
         // overwritten to `Some(c)` in the previous block or we returned Response::Unavail
