@@ -1,2 +1,2 @@
 [workspace]
-members = ["nss_cosiauthd", "authd"]
+members = ["nss_cosiauthd", "authd", "proxy", "libcosiauthd"]

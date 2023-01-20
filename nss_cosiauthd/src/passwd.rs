@@ -1,4 +1,3 @@
-use authd::types::UserToNSS;
 use futures::executor::block_on;
 use libnss::interop::Response;
 use tarpc::context;

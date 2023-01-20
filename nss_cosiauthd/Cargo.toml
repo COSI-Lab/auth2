@@ -18,9 +18,11 @@ anyhow = "1.0"
 futures = "0.3"
 tarpc = { version = "0.30", features = ["full"] }
 tokio = { version = "1.0", features = ["full"] }
-authd = { path = "../authd" }
 trust-dns-resolver = "0.22.0"
 rustls = "0.20.7"
+
+authd = { path = "../authd" }
+libcosiauthd = { path = "../libcosiauthd" }
 
 # Using forked repo until we can make a PR
 libnss = { git = "https://github.com/COSI-Lab/libnss-rs.git", branch = "debug", features = ["serde"] }

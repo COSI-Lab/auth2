@@ -1,8 +1,7 @@
-use authd::{Shell, SocketName};
-use tracing::info;
 use std::io;
 use std::sync::Mutex;
 use tokio::runtime::Runtime;
+use tracing::info;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 
 use crate::client::ClientAccessControl;
@@ -18,15 +17,6 @@ extern crate libnss;
 mod client;
 mod group;
 mod passwd;
-
-#[derive(serde::Deserialize)]
-struct NssConfig {
-    host: SocketName,
-    cert: String,
-    shells_root: String,
-    shells: Vec<Shell>,
-    home_root: String,
-}
 
 lazy_static! {
     static ref RPC: Mutex<ClientAccessControl> = {
@@ -52,12 +42,6 @@ lazy_static! {
         .enable_io()
         .enable_time()
         .build();
-
-    static ref CFG: anyhow::Result<NssConfig> = {
-        let contents = std::fs::read("/etc/auth/nss_cosiauthd.toml")?;
-        let toml = toml::from_slice(&contents)?;
-        Ok(toml)
-    };
 }
 
 libnss_passwd_hooks!(cosiauthd, AuthdPasswd);

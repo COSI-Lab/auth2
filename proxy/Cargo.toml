@@ -1,23 +1,20 @@
 [package]
-name = "authd"
+name = "proxy"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0"
 libcosiauthd = { path = "../libcosiauthd" }
 rustls = "0.20"
 tokio-rustls = "0.23"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-toml = "0.5"
-anyhow = "1.0"
-futures = "0.3"
-tarpc = { version = "0.31", features = ["full"] }
 tokio = { version = "1.0", features = ["full"] }
+tarpc = { version = "0.31", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
-
-# Using forked repo until we can make a PR
-libnss = { git = "https://github.com/COSI-Lab/libnss-rs.git", branch = "debug", features = ["serde"] }
+toml = "0.5"
+serde = { version = "1.0", features = ["derive"] }
+stubborn-io = "0.3"
+futures-util = "0.3.25"

@@ -3,13 +3,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use authd::rpc::AuthdClient;
 use libnss::interop::Response;
 use tokio::time::sleep_until;
-use tracing::{error, warn, info};
+use tracing::{error, info, warn};
 use trust_dns_resolver::TokioAsyncResolver;
 
-use crate::{SocketName, CFG, RT};
+use crate::{CFG, RT};
 
 #[derive(Default)]
 pub struct ClientAccessControl {

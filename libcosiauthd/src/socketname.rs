@@ -1,17 +1,37 @@
-use std::{net::SocketAddr, str::FromStr};
+use std::{net::SocketAddr, num::ParseIntError, str::FromStr};
 
-/// SocketName represents either addr 
-/// `"domain.com:port"`
-/// or 
-/// `"ipaddress:port"`
+/// SocketName represents a socket address as either a `std::net::SocketAddr` or a domain name + a
+/// port.
+///
+/// For example:
+/// `domain.com:1234`
+/// `127.0.0.1:44`
 #[derive(Debug, PartialEq, Eq)]
 pub enum SocketName {
     Dns(String, u16),
     Addr(SocketAddr),
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum SocketNameError {
+    ParseIntError(ParseIntError),
+    FormatError(),
+}
+
+impl std::fmt::Display for SocketNameError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Ok(match self {
+            SocketNameError::ParseIntError(err) => write!(f, "{}", err)?,
+            SocketNameError::FormatError() => write!(
+                f,
+                "Doesn't match the either format. Expect something like 'auth.cosi.clarkson.edu:8765' or '128.153.145.3'."
+            )?,
+        })
+    }
+}
+
 impl FromStr for SocketName {
-    type Err = anyhow::Error;
+    type Err = SocketNameError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match SocketAddr::from_str(s) {
@@ -22,10 +42,10 @@ impl FromStr for SocketName {
                     let (l, r) = (comps.next().unwrap(), comps.next().unwrap());
                     Ok(SocketName::Dns(
                         l.into(),
-                        u16::from_str(r).map_err(|e| anyhow::anyhow!(e.to_string()))?,
+                        u16::from_str(r).map_err(SocketNameError::ParseIntError)?,
                     ))
                 } else {
-                    Err(anyhow::anyhow!("not a socket addr & missing port for dns, example: auth.cosi.clarkson.edu:8765"))
+                    Err(SocketNameError::FormatError())
                 }
             }
         }
@@ -57,4 +77,3 @@ impl std::net::ToSocketAddrs for SocketName {
         })
     }
 }
-
